@@ -1,6 +1,7 @@
 import type { Tile } from './types';
 
 type BoardEntry = Tile | string;
+export type SelectionStatus = 'correct' | 'pending' | 'wrong';
 
 const getChar = (entry: BoardEntry) => (typeof entry === 'string' ? entry : entry.char);
 
@@ -13,7 +14,24 @@ const countChars = (chars: string[]) =>
 export const validateSelection = (
   selectedChars: string[],
   validABBWords: readonly string[],
-) => validABBWords.includes(selectedChars.join(''));
+) => getSelectionStatus(selectedChars, validABBWords) === 'correct';
+
+export const getSelectionStatus = (
+  selectedChars: string[],
+  validABBWords: readonly string[],
+): SelectionStatus => {
+  const selectedWord = selectedChars.join('');
+
+  if (validABBWords.includes(selectedWord)) {
+    return 'correct';
+  }
+
+  if (validABBWords.some((word) => word.startsWith(selectedWord))) {
+    return 'pending';
+  }
+
+  return 'wrong';
+};
 
 export const hasValidABB = (
   board: readonly BoardEntry[],

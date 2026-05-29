@@ -20,7 +20,7 @@ const findWordTileIds = (board: ReturnType<typeof generateBoard>, words: readonl
       tileIds.push(tile.id);
     }
 
-    if (tileIds.length === 3) {
+    if (tileIds.length === [...word].length) {
       return tileIds;
     }
   }

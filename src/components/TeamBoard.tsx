@@ -1,3 +1,4 @@
+import { maxWordLength } from '../data/abbWords';
 import type { TeamSide, TeamState } from '../game/types';
 import TileGrid from './TileGrid';
 
@@ -20,7 +21,7 @@ export default function TeamBoard({ side, team, gridColumns, onTilePointerDown }
     >
       <div className="board-title-row">
         <h2>{label}</h2>
-        <div className="selection-count">{team.selectedTileIds.length}/3</div>
+        <div className="selection-count">{team.selectedTileIds.length}/{maxWordLength}</div>
       </div>
       <TileGrid
         board={team.board}

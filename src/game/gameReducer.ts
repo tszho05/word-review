@@ -1,5 +1,5 @@
 import { validABBWords } from '../data/abbWords';
-import { validateSelection } from './abbValidator';
+import { getSelectionStatus } from './abbValidator';
 import { generateBoard, refillBoardAfterCorrect } from './boardGenerator';
 import {
   ATTACK_ANIMATION_MS,
@@ -133,8 +133,11 @@ export const gameReducer = (
       }
 
       const selectedTileIds = [...teamState.selectedTileIds, action.tileId];
+      const selectedChars = getSelectedChars(teamState, selectedTileIds);
+      const selectedWord = selectedChars.join('');
+      const selectionStatus = getSelectionStatus(selectedChars, validABBWords);
 
-      if (selectedTileIds.length < 3) {
+      if (selectionStatus === 'pending') {
         return updateTeam(state, action.team, (currentTeam) => ({
           ...currentTeam,
           selectedTileIds,
@@ -142,10 +145,7 @@ export const gameReducer = (
         }));
       }
 
-      const selectedChars = getSelectedChars(teamState, selectedTileIds);
-      const selectedWord = selectedChars.join('');
-
-      if (!validateSelection(selectedChars, validABBWords)) {
+      if (selectionStatus === 'wrong') {
         return updateTeam(state, action.team, (currentTeam) => ({
           ...currentTeam,
           selectedTileIds: [],

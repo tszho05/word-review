@@ -9,7 +9,7 @@ import { createInitialGameState, gameReducer } from './gameReducer';
 import type { GameState, TeamSide, TeamState, Tile } from './types';
 
 const makeBoard = (prefix: string): Tile[] => {
-  const chars = ['亮', '晶', '晶', '香', '噴', '噴', '紅', '彤', '彤'];
+  const chars = ['跨', '步', '急', '性', '子', '映', '入', '眼', '簾'];
   const board = chars.map((char, index) => ({ id: `${prefix}-${index}`, char }));
 
   while (board.length < TILE_COUNT_PER_TEAM) {
@@ -50,13 +50,39 @@ const selectWord = (state: GameState, team: TeamSide, tileIds: string[]) =>
   );
 
 describe('game reducer', () => {
-  it('ends the game when HP reaches zero', () => {
+  it('accepts a two-character word and ends the game when HP reaches zero', () => {
     const state = makePlayingState(INITIAL_HP, 10);
-    const nextState = selectWord(state, 'left', ['left-0', 'left-1', 'left-2']);
+    const nextState = selectWord(state, 'left', ['left-0', 'left-1']);
 
     expect(nextState.teams.right.hp).toBe(0);
     expect(nextState.phase).toBe('gameOver');
     expect(nextState.winner).toBe('left');
+  });
+
+  it('waits for all characters of a four-character word before attacking', () => {
+    const state = makePlayingState();
+    const partialState = selectWord(state, 'left', ['left-5', 'left-6', 'left-7']);
+
+    expect(partialState.teams.left.selectedTileIds).toEqual(['left-5', 'left-6', 'left-7']);
+    expect(partialState.teams.right.hp).toBe(INITIAL_HP);
+    expect(partialState.lastCorrectWord).toBeNull();
+
+    const nextState = gameReducer(partialState, {
+      type: 'selectTile',
+      team: 'left',
+      tileId: 'left-8',
+    });
+
+    expect(nextState.teams.right.hp).toBe(90);
+    expect(nextState.lastCorrectWord).toBe('映入眼簾');
+  });
+
+  it('locks a team when the selection cannot become a word', () => {
+    const state = makePlayingState();
+    const nextState = gameReducer(state, { type: 'selectTile', team: 'left', tileId: 'left-7' });
+
+    expect(nextState.teams.left.locked).toBe(true);
+    expect(nextState.teams.left.wrongTileIds).toEqual(['left-7']);
   });
 
   it('chooses the higher HP team when time ends', () => {

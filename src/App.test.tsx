@@ -2,7 +2,7 @@ import { act, cleanup, fireEvent, render, screen, within } from '@testing-librar
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import App from './App';
 import { validABBWords } from './data/abbWords';
-import { hasValidABB } from './game/abbValidator';
+import { getSelectionStatus, hasValidABB } from './game/abbValidator';
 import { CORRECT_WORD_BURST_MS, WRONG_LOCK_DURATION_MS } from './game/constants';
 import { correctRefillDelayMs } from './game/gameReducer';
 
@@ -37,7 +37,7 @@ const findValidWordTiles = (side: 'left' | 'right') => {
       wordTiles.push(tile);
     }
 
-    if (wordTiles.length === 3) {
+    if (wordTiles.length === [...word].length) {
       return wordTiles;
     }
   }
@@ -45,26 +45,64 @@ const findValidWordTiles = (side: 'left' | 'right') => {
   throw new Error(`No valid ABB tiles found for ${side}`);
 };
 
+const findPendingTile = (side: 'left' | 'right') => {
+  const tile = getTileButtons(side).find(
+    (candidate) => getSelectionStatus([candidate.dataset.char ?? ''], validABBWords) === 'pending',
+  );
+
+  if (!tile) {
+    throw new Error(`No pending tile found for ${side}`);
+  }
+
+  return tile;
+};
+
 const findInvalidTiles = (side: 'left' | 'right') => {
   const tiles = getTileButtons(side);
-  const validWordSet = new Set<string>(validABBWords);
+  const maxLength = Math.max(...validABBWords.map((word) => [...word].length));
 
-  for (let first = 0; first < tiles.length; first += 1) {
-    for (let second = 0; second < tiles.length; second += 1) {
-      for (let third = 0; third < tiles.length; third += 1) {
-        if (new Set([first, second, third]).size !== 3) {
-          continue;
-        }
+  const search = (
+    selectedTiles: HTMLButtonElement[],
+    usedTiles: Set<HTMLButtonElement>,
+  ): HTMLButtonElement[] | null => {
+    if (selectedTiles.length > 0) {
+      const selectedChars = selectedTiles.map((tile) => tile.dataset.char ?? '');
+      const status = getSelectionStatus(selectedChars, validABBWords);
 
-        const word = [tiles[first], tiles[second], tiles[third]]
-          .map((tile) => tile.dataset.char)
-          .join('');
+      if (status === 'wrong') {
+        return selectedTiles;
+      }
 
-        if (!validWordSet.has(word)) {
-          return [tiles[first], tiles[second], tiles[third]];
-        }
+      if (status === 'correct') {
+        return null;
       }
     }
+
+    if (selectedTiles.length >= maxLength) {
+      return null;
+    }
+
+    for (const tile of tiles) {
+      if (usedTiles.has(tile)) {
+        continue;
+      }
+
+      const nextUsedTiles = new Set(usedTiles);
+      nextUsedTiles.add(tile);
+      const result = search([...selectedTiles, tile], nextUsedTiles);
+
+      if (result) {
+        return result;
+      }
+    }
+
+    return null;
+  }
+
+  const invalidTiles = search([], new Set());
+
+  if (invalidTiles) {
+    return invalidTiles;
   }
 
   throw new Error(`No invalid tile sequence found for ${side}`);
@@ -81,11 +119,12 @@ afterEach(() => {
   vi.useRealTimers();
 });
 
-describe('ABB 疊詞功夫擂台', () => {
+describe('詞語溫習', () => {
   it('shows the start screen before entering the game', () => {
     render(<App />);
 
     expect(screen.getByTestId('start-screen')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: '詞語溫習' })).toBeInTheDocument();
     expect(screen.queryByTestId('game-screen')).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: '開始' })).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: '簡單' })).toBeInTheDocument();
@@ -180,7 +219,7 @@ describe('ABB 疊詞功夫擂台', () => {
 
   it('cancels selection when the same selected tile is touched again', () => {
     startGame();
-    const [tile] = getTileButtons('left');
+    const tile = findPendingTile('left');
 
     fireEvent.pointerDown(tile, { pointerId: 1, pointerType: 'touch' });
     expect(tile).toHaveClass('selected');
@@ -302,7 +341,7 @@ describe('ABB 疊詞功夫擂台', () => {
     startGame();
 
     pointerDownTiles(findInvalidTiles('left'));
-    const rightTile = getTileButtons('right')[0];
+    const rightTile = findPendingTile('right');
 
     fireEvent.pointerDown(rightTile, { pointerId: 8, pointerType: 'touch' });
 
